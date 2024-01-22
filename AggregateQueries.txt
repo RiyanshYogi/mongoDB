@@ -1,0 +1,403 @@
+The aggregate function in MongoDB is used to perform aggregation operations on the data, such as filtering,
+grouping, and transforming documents. The syntax for the aggregate function involves defining an array of
+stages, where each stage represents a step in the aggregation pipeline.
+
+SYNTAX :-
+    db.collection.aggregate([
+     { $stage1: { /* stage1 parameters */ } },
+     { $stage2: { /* stage2 parameters */ } },
+       // ... additional stages
+    ])
+
+
+1. WAQ which will select the restaurant_id, name, and grades for those restaurants which returns 0
+    as a remainder after dividing the score by 7.
+
+    db.restaurants.aggregate([
+      {
+        $unwind: "$grades" // Unwind the "grades" array
+      },
+      {
+        $match: {
+          $expr: { $eq: [{ $mod: [{ $toInt: "$grades.score" }, 7]}, 0] }
+        }
+      },
+      {
+        $project: {
+          "restaurant_id": 1,
+          "name": 1,
+          "grades": 1
+        }
+      }
+    ])
+
+2. WAQ to find the average score for each restaurant.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades"},
+        { $group : { _id : "$restaurant_id", avgScore : { $avg : "$grades.score" } } },
+        { $project : {
+            restaurant_id : "$_id",
+            _id : 0,
+            avgScore : 1
+        }}
+    ])
+
+Certainly! The provided MongoDB aggregation pipeline is used to calculate the average score for each restaurant based on the individual scores in the "grades" array. Let's break down each stage in the pipeline:
+
+$unwind:
+
+$unwind is a pipeline stage that is used to deconstruct an array field. In this case, it's applied to the "grades" array.
+It creates a new document for each element in the "grades" array, duplicating the other fields in the original document.
+$group:
+
+$group is a pipeline stage that groups documents based on a specified key or expression.
+Here, it groups documents by the "restaurant_id" field (_id: "$restaurant_id").
+It calculates the average score for each group using the $avg accumulator on the "grades.score" field (avgScore: { $avg: "$grades.score" }).
+$project:
+
+$project is a pipeline stage that reshapes documents by including or excluding fields.
+It is used here to rename the "_id" field to "restaurant_id" (restaurant_id: "$_id").
+The "_id" field is excluded from the output (_id: 0).
+The "avgScore" field is included in the output (avgScore: 1).
+
+
+
+3. WAQ to find the highest score for each restaurant.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades"},
+        { $group : { "_id" : "$restaurant_id", highestScore : { $max : "$grades.score" } } },
+        { $project : { "restaurant_id" : "$_id", "_id" : 0, highestScore : 1 } }
+    ])
+
+    
+4. WAQ to find the count of restaurants in each borough.
+
+    db.restaurants.aggregate([
+        { $group : { _id : "$borough", count : {$sum : 1} } },
+    ])
+
+NOTE :- In summary, the aggregation pipeline does the following:
+        $group groups documents by the "borough" field.
+        It calculates the count of documents for each unique "borough."
+        Here's the equivalent explanation of the pipeline step:
+
+        here $sum : 1 , shows that count is incremented by one.
+
+
+5. WAQ to find the count of restaurants for each cuisine.
+
+    db.restaurants.aggregate([
+        { $group : { _id : "$cuisine", count : {$sum : 1 } } }
+    ])
+
+    NOTE : If you want to sort the count and also want top 10 documents. then :
+
+    db.restaurants.aggregate([
+        { $group : { _id : "$cuisine", count : {$sum : 1 } } },
+        { $sort : { count : -1 } },
+        { $limit : 10 }
+    ])
+
+6. WAQ to find the count of restaurants for each cuisine and borough.
+
+    db.restaurants.aggregate([
+        { $group : { _id : { cuisine : "$cuisine", borough : "$borough" } , count : { $sum : 1 } } }
+    ])
+
+7. WAQ to find the count of restaurants that received a grade of 'A' for each cuisine.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $match : { "grades.grade" : 'A' } },
+        { $group : { _id : "$cuisine", count : { $sum : 1 } } }
+    ])
+
+
+8. WAQ to find the number of restaurants that have been graded in each month of the year.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $project : { month : { $month : "$grades.date" }, year : { $year : "$grades.date" } } },
+        { $group : { _id : { month : "$month", year : "$year" }, count : { $sum : 1 } } },
+        { $sort : { "_id.year" : 1, "_id.month" : 1 } }
+    ])
+
+NOTE :- When you use the $project stage before the $group stage in a MongoDB aggregation pipeline,
+you are typically shaping or transforming the documents before performing the grouping operation.
+The $project stage allows you to include or exclude fields, create computed fields, or reshape the
+documents in a way that suits your analysis or reporting needs.
+
+
+9. WAQ to find the average score for each cuisine.
+    
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $group : { _id : "$cuisine", avgScore : { $avg : "$grades.score" } } }
+    ])
+
+NOTE :- for finding highest or lowest score for each cuisine, replace the $avg by $max or $min
+
+
+10. WAQ to find the average score for each borough.
+    
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $group : { _id : "$borough", avgScore : { $avg : "$grades.grade" } } }
+    ])
+
+11. WAQ to find the name and address of the restaurants that received a grade of 'A' on a specific date.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $match : { "grades.grade" : 'A', "grades.date" : ISODate("YYYY-MM-DDT00:00:00Z") } },
+        { $project : { _id : 1, name : 1, "address.building" : 1, "address.street" : 1, "address.borough" : 1 } }
+    ])
+
+NOTE :- replace YYYY-MM-DD with your spicific time, also you can mention time right After separater T.
+
+
+
+12. WAQ to find the name and address of the restaurants that have at least one 'A' grade and one 'B' grade.
+
+    db.restaurants.aggregate([
+        { $unwind: "$grades" },
+        { $match: { "grades.grade": { $in: ['A', 'B'] } } },
+        {
+          $group: {
+            _id: "$_id",
+            name: { $first: "$name" },
+            address: { $first: "$address" }, // Group address as a subdocument
+            gradeA: {
+              $max: {
+                $cond: [{ $eq: ["$grades.grade", "A"] }, "$grades.grade", null]
+              }
+            },
+            gradeB: {
+              $max: {
+                $cond: [{ $eq: ["$grades.grade", "B"] }, "$grades.grade", null]
+              }
+            }
+          }
+        },
+        {
+          $match: { gradeA: 'A', gradeB: 'B' }
+        },
+        {
+          $project: {
+            _id: 1,
+            name: 1,
+            "address.building": "$address.building",
+            "address.street": "$address.street",
+            "address.borough": "$address.borough"
+          }
+        }
+    ])
+
+
+NOTE :- $group stage. MongoDB does not allow dots in 
+field names when defining fields in the output of the $group stage.
+
+plz read about $group and $match from chatGPT or mongoDB docs for more detail
+
+
+13. WAQ to find the name, address and grades of the restaurants that have at least one 'A' grade, no 'B'
+ grades and no 'C' grades.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $group : 
+            {
+                _id : "$_id",
+                name : { $first : "$name" },
+                "address" : { $first : "$address" },
+                gradeA : { $max : { $cond : [ { $eq : ["$grades.grade",'A'] }, "$grades.grade", null ] } }
+            }
+        },
+        { $match : { gradeA : 'A', gradeB : null, gradeC : null } },
+        { $project : { _id : 1, name : 1, "address.building" : 1, "address.street" : 1, "address.borough" : 1, grades : 1 } }
+    ])
+
+
+
+14. WAQ to find the name and address of the restaurants that have a zip code that starts with '10'.
+
+    db.restaurants.find(
+        {
+            "address.zipcode" : { $regex : /^101/ },
+            
+        },
+        {
+            name : 1,
+            "address.building" : 1,
+            "address.street" : 1,
+            _id : 0
+        }
+    )
+
+15. WAQ to find the restaurants achieved highest average score.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $group :
+            {
+                _id : "$restaurant_id",
+                name : { $first : "$name" },
+                averageScore : { $avg : "$grades.score" }
+            } 
+        },
+        { $sort : { averageScore : -1 } },
+        { $limit : 1 },
+        { $project :
+            {
+                _id : 0,
+                name : 1,
+                averageScore : 1
+            }
+        }
+    ])
+
+
+16. WAQ to find all the the restaurants with the highest number of 'A' grades.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $match : { "grades.grade" : 'A' } },
+        { $group : 
+            {
+                 _id : "$restaurant_id",
+                 name : { $first : "$name" },
+                 count : { $sum : 1 } 
+            } 
+        },
+        { $sort : { count : -1 } },
+        { $group :
+            {
+                _id : "$count",
+                restaurants : { $push : { name : "$name" , restaurant_id : "$_id" } },
+            }
+        },
+        { $limit : 1 },
+        { $project : 
+            {
+                _id : 0,
+                "restaurant.name" : 1,
+                "restaurants.restaurant_id" : 1,
+                count : "$_id"
+            }
+        }
+    ])
+
+17. WAQ to find the restaurant with the most recent grade date.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $sort : { "grades.date" : -1 } },
+        { $limit : 1 },
+        { $project : 
+            {
+                _id : 0,
+                restaurant_id : 1,
+                name : 1,
+                borough : 1,
+                cuisine : 1,
+                mostRecentGradeDate : "$grades.date"
+            }
+        } 
+    ])
+
+
+18. WAQ to find the top 5 restaurants with the highest average score for each cuisine type along with their
+    average scores.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $group : 
+            {
+                _id : {
+                    cuisine : "$cuisine",
+                    restaurant_id : "$restaurant_id",
+                    name : "$name"
+                },
+                avgScore : { $avg : "$grades.score" }
+            }
+        },
+        { $sort : { "_id.cuisine" : 1, avgScore : -1 } },
+        { $group : 
+            {
+                _id : "$_id.cuisine",
+                topRestaurants : { $push : { 
+                    restaurant_id : "$_id.restaurant_id",
+                    name : "$_id.name",
+                    avgScore : "$avgScore" 
+                     }
+                    }
+            }
+        },
+        { $project : 
+            {
+                _id : 0,
+                cuisine : "$_id",
+                topRestaurants : { $slice : [ "$topRestaurants", 5] }
+            }
+        }
+    ])
+
+
+19. WAQ to find the top 5 restaurants in each borough with the highest number of 'A' grades.
+
+    db.restaurants.aggregate([
+        { $unwind : "$grades" },
+        { $match : { "grades.grade" : "A" } },
+        { $group : 
+            {
+                _id : {
+                    borough : "$borough",
+                    restaurant_id : "$restaurant_id",
+                    name : "$name"
+                },
+                gradeCount : { $sum : 1 }
+            }
+        },
+        { $sort : { "_id.borough" : 1, gradeCount : -1 } },
+        { $group : 
+            {
+                _id : "$_id.borough",
+                topRestaurants : {
+                    $push : { restaurant_id : "$_id.restaurant_id" ,name : "$_id.name", gradeCount : "$gradeCount" }
+                }
+            }
+        },
+        {
+            $project : 
+            {
+                _id : 0,
+                borough : "$_id",
+                topRestaurants : { $slice : ["$topRestaurants", 5] }
+            }
+        }
+    ])
+
+
+20. WAQ to find the borough with the highest number of restaurants that have a grade of 'A' and a score 
+    greater than one equal to 90.
+
+    db.restaurants.aggregate([
+        { $match : { "grades.grade" : 'A', "grades.score" : { $gte : 90 } } },
+        { $group : 
+            {
+                 _id : "$borough", restaurantCount : { $sum : 1} 
+            }
+        },
+        { $sort : { restaurantCount : -1 } },
+        { $limit : 1 },
+        { $project : 
+            {
+                _id : 0,
+                borough : "$_id",
+                restaurantCount : 1
+            }
+        }
+    ])
+

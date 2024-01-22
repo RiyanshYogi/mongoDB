@@ -129,13 +129,132 @@ Explanation :-
     )
 
 
-13. WAQ 
+13. WAQ to find the restaurant's names, borough and cuisine for those restaurants which are not belonging
+    to the borough Staten Island or Queens or Bronxor, Brooklyn.
+
+    db.restaurants.find(
+        {
+            "borough" : { $nin : ['Staten Island', 'Queens', 'Bronx', 'Brooklyn']}
+        },
+        {
+            "name" : 1,
+            "borough" : 1,
+            "cuisine" : 1
+        }
+    )
+
+14. WAQ to find the restaurant_id, name, borough and cuisine for those restaurants which prepared dish except
+    American and Chinese or restaurant's name begins with letter 'Wil'.
+
+    db.restaurants.find(
+        {
+            $or : [
+                     {"cuisine" : {$nin : ['American','Chinese']}},
+                     {"name" : { $regex : /^Wil/}}
+                  ]
+        },
+        {
+            "restaurant_id" : 1,
+            "name" : 1,
+            "borough" : 1,
+            "cuisine" : 1
+        }
+    )
 
 
 
+15. WAQ to find the restaurants names for those restaurants which achieved a grade for 'A' and scored 11 on an 
+    ISO date "2014-08-11T00:00:00z" among many of survey dates.
+
+    db.restaurants.find(
+        {
+            "grades" : {
+                $elemMatch : {
+                    "date" : ISODate("2014-08-11T00:00:00Z"),
+                    "grade" : "A",
+                    "score" : 11
+                }
+            }
+        },
+        {
+            "name" : 1
+        }
+    )
+
+16. WAQ to arrange the name of the restaurants in descending order along with all the columns, and display
+    the names only for top 5 restaurants.
+
+    db.restaurants.find({},{"name" : 1}).sort({"name" : -1}).limit(5)
+
+17. WAQ to arrange the name of the cuisine in ascending order and for that same cuisine borough should be
+    in descending order, display name, cuisine, borough and exclude _id field.
+
+    db.restaurants.find({},{"name" : 1,"cuisine" : 1,"borough" : 1, "_id" : 0}).sort({"cuisine" : 1, "borough" : -1})
 
 
 
+18. WAQ to know whether all the addresses contains the street or not.
+
+    db.restaurants.find(
+        {"address.street" : { $exists : false}}
+    )
+
+
+19. WAQ which select all documents on the restaurants collections where the coord field value is double
+
+    db.restaurants.find(
+        { "address.coord" : { $type : "double" }}
+    )
+
+
+20. WAQ to find restaurant names for those restaurants which contains 'mon' as three letters somewhere in its
+    name.
+
+    db.restaurants.find(
+        {"name" : {$regex : /mon/i}},
+        {"name" : 1, "_id" : 0}
+    )
+
+NOTE :- here in $regex : /mon/i, we include i which indicates the case-Insensitive for finding mon/Mon/MON.
+        Otherwise by default it will search for case sensitive.
+
+21. WAQ to find the restaurants that have at least one grade with a score of less than 5.
+
+    db.restaurants.find(
+        {
+            "grades" : { $elemMatch : {"score" : { $lt : 5}}}
+        }
+    )
+
+22. WAQ to find the restaurants that have a grade with a score of 2 and a grade with a score of 6.
+
+    db.restaurants.find(
+        {
+            "grades" : {
+                $elemMatch : { "score" : 2},
+                $elemMatch : { "score" : 6}
+            }
+        }
+    )
+
+
+
+23. WAQ to find the restaurants names only that have a grade with a score of 2 or a grade with a score of 6.
+
+    db.restaurants.find(
+        {
+            $or : [
+                { "grades" : {$elemMatch : {"score" : 2}}},
+                { "grades" : {$elemMatch : {"score" : 6}}}
+            ]
+        },
+        {
+            "name" : 1,
+            "_id" : 0
+        }
+    )
+
+ 
 
 
 
